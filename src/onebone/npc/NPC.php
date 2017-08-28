@@ -21,15 +21,16 @@ namespace onebone\npc;
 
 use pocketmine\entity\Entity;
 use pocketmine\level\Location;
+use pocketmine\network\mcpe\protocol\AddPlayerPacket;
+use pocketmine\network\mcpe\protocol\PlayerListPacket;
+use pocketmine\network\mcpe\protocol\MovePlayerPacket;
+use pocketmine\network\mcpe\protocol\RemoveEntityPacket;
 use pocketmine\utils\UUID;
 use pocketmine\utils\TextFormat;
 use pocketmine\item\Item;
 use pocketmine\Player;
 use pocketmine\math\Vector2;
-use pocketmine\network\mcpe\protocol\MovePlayerPacket;
-use pocketmine\network\mcpe\protocol\AddPlayerPacket;
-use pocketmine\network\mcpe\protocol\PlayerListPacket;
-use pocketmine\network\mcpe\protocol\RemoveEntityPacket;
+use pocketmine\math\Vector3;
 
 class NPC extends Location{
 	/** @var  Main */
@@ -105,40 +106,43 @@ class NPC extends Location{
 	}
 
 	public function seePlayer(Player $target){
-		$pk = new MovePlayerPacket();
-		$pk->entityRuntimeId = $this->eid;
-		if($this->yaw === -1 and $target !== null){
-			$xdiff = $target->x - $this->x;
-			$zdiff = $target->z - $this->z;
-			$angle = atan2($zdiff, $xdiff);
-			$pk->yaw = (($angle * 180) / M_PI) - 90;
-		}else{
-			$pk->yaw = $this->yaw;
-		}
-		if($this->pitch === -1 and $target !== null){
-			$ydiff = $target->y - $this->y;
+		$vec = new Vector3($this->x, $this->y, $this->z);
+		if($vec->distance(new Vector3($target->x, $target->y, $target->z)) <= $this->plugin->maxdist){
+			$pk = new MovePlayerPacket();
+			$pk->eid = $this->eid;
+			if($this->yaw === -1 and $target !== null){
+				$xdiff = $target->x - $this->x;
+				$zdiff = $target->z - $this->z;
+				$angle = atan2($zdiff, $xdiff);
+				$pk->yaw = (($angle * 180) / M_PI) - 90;
+			}else{
+				$pk->yaw = $this->yaw;
+			}
+			if($this->pitch === -1 and $target !== null){
+				$ydiff = $target->y - $this->y;
 
-			$vec = new Vector2($this->x, $this->z);
-			$dist = $vec->distance($target->x, $target->z);
-			$angle = atan2($dist, $ydiff);
-			$pk->pitch = (($angle * 180) / M_PI) - 90;
-		}else{
-			$pk->pitch = $this->pitch;
-		}
-		$pk->x = $this->x;
-		$pk->y = $this->y + 1.62;
-		$pk->z = $this->z;
-		$pk->bodyYaw = $pk->yaw;
-		//$pk->onGruond = 0;
+				$vec = new Vector2($this->x, $this->z);
+				$dist = $vec->distance($target->x, $target->z);
+				$angle = atan2($dist, $ydiff);
+				$pk->pitch = (($angle * 180) / M_PI) - 90;
+			}else{
+				$pk->pitch = $this->pitch;
+			}
+			$pk->x = $this->x;
+			$pk->y = $this->y + 1.62;
+			$pk->z = $this->z;
+			$pk->bodyYaw = $pk->yaw;
+			$pk->onGruond = 0;
 
-		$target->dataPacket($pk);
+			$target->dataPacket($pk);
+		}
 	}
 
 	public function spawnTo(Player $target){
 		$pk = new AddPlayerPacket();
 		$pk->uuid = $this->uuid;
 		$pk->username = $this->name;
-		$pk->entityRuntimeId = $this->eid;
+		$pk->eid = $this->eid;
 		$pk->x = $this->x;
 		$pk->y = $this->y;
 		$pk->z = $this->z;
@@ -171,32 +175,37 @@ class NPC extends Location{
 		];
 		$target->dataPacket($pk);
 
-		$pk = new PlayerListPacket();
-		$pk->type = PlayerListPacket::TYPE_ADD;
+		if($this->plugin->includeonplayerlist){
+			$pk = new PlayerListPacket();
+			$pk->type = PlayerListPacket::TYPE_ADD;
 
-		$pk->entries = [
-			[
-				$this->uuid, $this->eid, TextFormat::GRAY."NPC: ".$this->name, $this->skinId, $this->skin
-			]
-		];
+			$pk->entries = [
+				[
+					$this->uuid, $this->eid, TextFormat::GRAY."NPC: ".$this->name, $this->skinId, $this->skin
+				]
+			];
 
-		$target->dataPacket($pk);
+			$target->dataPacket($pk);
+		}
 	}
 
 	public function removeFrom(Player $player){
 		$pk = new RemoveEntityPacket();
-		$pk->entityUniqueId = $this->eid;
+		$pk->clientId = $this->uuid;
+		$pk->eid = $this->eid;
 
 		$player->dataPacket($pk);
 
-		$pk = new PlayerListPacket();
-		$pk->type = PlayerListPacket::TYPE_REMOVE;
-		$pk->entries = [
-			[
-				$this->uuid, $this->eid, TextFormat::GRAY."NPC: ".$this->name, $this->skinId, $this->skin
-			]
-		];
-		$player->dataPacket($pk);
+		if($this->plugin->includeonplayerlist){
+			$pk = new PlayerListPacket();
+			$pk->type = PlayerListPacket::TYPE_REMOVE;
+			$pk->entries = [
+				[
+					$this->uuid, $this->eid, TextFormat::GRAY."NPC: ".$this->name, $this->skinId, $this->skin
+				]
+			];
+			$player->dataPacket($pk);
+		}
 	}
 
 	public function remove(){

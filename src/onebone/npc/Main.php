@@ -37,6 +37,11 @@ class Main extends PluginBase implements Listener{
 	/** @var NPC[] */
 	private $npc = [];
 	private $msgQueue = [], $cmdQueue = [];
+	
+	/** @var bool */
+	public $saveonchange, $includeonplayerlist;
+	/** @var int */
+	public $maxdist;
 
 	public function onEnable(){
 		if(!file_exists($this->getDataFolder())){
@@ -59,6 +64,10 @@ class Main extends PluginBase implements Listener{
 			$npc = NPC::createNPC($this, $datam);
 			$this->npc[$npc->getId()] = $npc;
 		}
+		
+		$this->saveonchange = $this->getConfig()->get("save-on-change");
+		$this->includeonplayerlist = $this->getConfig()->get("include-on-player-list");
+		$this->maxdist = $this->getConfig()->get("max-distance-to-track-player");
 
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 	}
@@ -124,7 +133,7 @@ class Main extends PluginBase implements Listener{
 		}
 	}
 
-	public function onCommand(CommandSender $sender, Command $command, $label, array $params) : bool {
+	public function onCommand(CommandSender $sender, Command $command, $label, array $params){
 		switch($command->getName()){
 			case "npc":
 			switch(strtolower(array_shift($params))){

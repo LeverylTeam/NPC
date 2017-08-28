@@ -1,1 +1,3 @@
 save-on-change: true
+include-on-player-list: true
+max-distance-to-track-player: 8
